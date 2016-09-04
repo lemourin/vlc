@@ -139,6 +139,8 @@ void DialogsProvider::customEvent( QEvent *event )
         case INTF_DIALOG_SAT:
         case INTF_DIALOG_CAPTURE:
             openCaptureDialog(); break;
+        case INTF_DIALOG_CLOUD:
+            openCloudDialog(); break;
         case INTF_DIALOG_DIRECTORY:
             PLAppendDir(); break;
         case INTF_DIALOG_PLAYLIST:
@@ -424,6 +426,11 @@ void DialogsProvider::openNetDialog()
 void DialogsProvider::openCaptureDialog()
 {
     openDialog( OPEN_CAPTURE_TAB );
+}
+
+void DialogsProvider::openCloudDialog()
+{
+    openDialog( OPEN_CLOUD_TAB );
 }
 
 /* Same as the open one, but force the enqueue */

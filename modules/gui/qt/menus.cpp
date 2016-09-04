@@ -370,6 +370,10 @@ QMenu *VLCMenuBar::FileMenu( intf_thread_t *p_intf, QWidget *parent, MainInterfa
         ":/type/network", SLOT( openNetDialog() ), "Ctrl+N" );
     addDPStaticEntry( menu, qtr( "Open &Capture Device..." ),
         ":/type/capture-card", SLOT( openCaptureDialog() ), "Ctrl+C" );
+#ifdef WITH_LIBCLOUDSTORAGE
+    addDPStaticEntry( menu, qtr( "Open Cloud File..."),
+        ":/type/cloud", SLOT( openCloudDialog() ) );
+#endif
 
     addDPStaticEntry( menu, qtr( "Open &Location from clipboard" ),
                       NULL, SLOT( openUrlDialog() ), "Ctrl+V" );

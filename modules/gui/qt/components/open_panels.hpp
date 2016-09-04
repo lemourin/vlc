@@ -38,10 +38,19 @@
 #include "ui/open_disk.h"
 #include "ui/open_net.h"
 #include "ui/open_capture.h"
+#include "ui/open_cloud.h"
 
 #include <QFileDialog>
+#include <QMutex>
 
 #include <limits.h>
+
+#ifdef WITH_LIBCLOUDSTORAGE
+  #include <ICloudStorage.h>
+  #include <ICloudProvider.h>
+  #include <IRequest.h>
+  #include <IItem.h>
+#endif
 
 #define setSpinBoxFreq( spinbox ){ spinbox->setRange ( 0, INT_MAX ); \
     spinbox->setAccelerated( true ); }
@@ -229,5 +238,67 @@ private slots:
     void enableAdvancedDialog( int );
     void advancedDialog();
 };
+
+#ifdef WITH_LIBCLOUDSTORAGE
+class DirectoryModel : public QAbstractListModel
+{
+public:
+    int rowCount( const QModelIndex& parent = QModelIndex() ) const override;
+    QVariant data( const QModelIndex& index, int ) const override;
+    void addItem( cloudstorage::IItem::Pointer item );
+    cloudstorage::IItem::Pointer get( int ) const;
+    QVariant getName( int ) const;
+    QVariant getIcon( int ) const;
+    void clear();
+
+private:
+    mutable QMutex mutex;
+    std::vector<cloudstorage::IItem::Pointer> list;
+};
+
+class CloudListView : public QListView
+{
+    Q_OBJECT
+public:
+    using QListView::QListView;
+
+    void selectionChanged( const QItemSelection &selected, const QItemSelection &deselected ) override;
+
+signals:
+    void selectedItemChanged();
+};
+
+class CloudOpenPanel : public OpenPanel
+{
+    Q_OBJECT
+public:
+    CloudOpenPanel( QWidget *, intf_thread_t * );
+    ~CloudOpenPanel();
+
+    void save();
+    void clear();
+
+protected:
+    void keyPressEvent( QKeyEvent* ) override;
+
+private:
+    Ui::OpenCloud ui;
+    DirectoryModel directoryModel;
+    cloudstorage::ICloudStorage::Pointer cloudStorage;
+    cloudstorage::ICloudProvider::Pointer currentProvider;
+    cloudstorage::IItem::Pointer currentDirectory;
+    cloudstorage::ICloudProvider::ListDirectoryRequest::Pointer listDirectoryRequest;
+    cloudstorage::ICloudProvider::GetItemDataRequest::Pointer itemDataRequest;
+    std::vector<cloudstorage::IItem::Pointer> directoryStack;
+
+    void buttonClicked();
+    void itemClicked( const QModelIndex& );
+    void selectionChanged();
+    void listDirectory();
+
+public slots:
+    void updateMRL();
+};
+#endif
 
 #endif

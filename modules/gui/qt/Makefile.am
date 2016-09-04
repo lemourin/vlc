@@ -213,6 +213,7 @@ nodist_libqt_plugin_la_SOURCES += \
 	ui/open_disk.h \
 	ui/open_net.h \
 	ui/open_capture.h \
+	ui/open_cloud.h \
 	ui/open.h \
 	ui/vlm.h \
 	ui/podcast_configuration.h \
@@ -253,6 +254,7 @@ libqt_plugin_la_UI = \
 	ui/open_disk.ui \
 	ui/open_net.ui \
 	ui/open_capture.ui \
+	ui/open_cloud.ui \
 	ui/open.ui \
 	ui/podcast_configuration.ui \
 	ui/profiles.ui \

@@ -90,6 +90,7 @@
         <file alias="stream">pixmaps/types/type_stream.png</file>
         <file alias="node">pixmaps/types/type_node.png</file>
         <file alias="playlist">pixmaps/types/type_playlist.png</file>
+        <file alias="cloud">pixmaps/types/type_cloud.png</file>
     </qresource>
     <qresource prefix="/">
         <file alias="down_arrow">pixmaps/arrow_down_dark.png</file>

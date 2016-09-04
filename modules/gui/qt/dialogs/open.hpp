@@ -40,6 +40,7 @@ enum {
     OPEN_DISC_TAB,
     OPEN_NETWORK_TAB,
     OPEN_CAPTURE_TAB,
+    OPEN_CLOUD_TAB,
     OPEN_TAB_MAX
 };
 
@@ -98,6 +99,9 @@ private:
     NetOpenPanel *netOpenPanel;
     DiscOpenPanel *discOpenPanel;
     CaptureOpenPanel *captureOpenPanel;
+#ifdef WITH_LIBCLOUDSTORAGE
+    CloudOpenPanel *cloudOpenPanel;
+#endif
 
     int i_action_flag;
     bool b_pl;

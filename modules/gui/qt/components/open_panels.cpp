@@ -53,6 +53,7 @@
 #include <QUrl>
 #include <QMimeData>
 #include <QDropEvent>
+#include <QDesktopServices>
 
 #define I_DEVICE_TOOLTIP \
     I_DIR_OR_FOLDER( N_("Select a device or a VIDEO_TS directory"), \
@@ -1403,3 +1404,235 @@ void CaptureOpenPanel::advancedDialog()
     module_config_free( p_config );
 }
 
+#ifdef WITH_LIBCLOUDSTORAGE
+
+using cloudstorage::IItem;
+using cloudstorage::ICloudProvider;
+
+namespace
+{
+class CloudCallback : public cloudstorage::ICloudProvider::ICallback
+{
+public:
+    Status userConsentRequired( const ICloudProvider& provider ) override
+    {
+        QDesktopServices::openUrl( QUrl( provider.authorizeLibraryUrl().c_str() ) );
+        return Status::WaitForAuthorizationCode;
+    }
+
+    void accepted( const ICloudProvider& ) override
+    {
+    }
+
+    void declined( const ICloudProvider& ) override
+    {
+    }
+
+    void error( const ICloudProvider&,
+                const std::string& ) override
+    {
+    }
+};
+
+class CloudListDirectoryCallback : public cloudstorage::IListDirectoryCallback {
+public:
+    CloudListDirectoryCallback( DirectoryModel *model ) : model( model )
+    {
+    }
+
+    void receivedItem( IItem::Pointer item ) override
+    {
+        model->addItem( item );
+    }
+
+    void done( const std::vector<IItem::Pointer>& ) override
+    {
+    }
+
+    void error( const std::string& ) override
+    {
+    }
+
+private:
+    DirectoryModel* model;
+};
+} // namespace
+
+CloudOpenPanel::CloudOpenPanel( QWidget *parent, intf_thread_t *t ) :
+                                  OpenPanel( parent, t )
+{
+    cloudStorage = cloudstorage::ICloudStorage::create();
+    QWidget* selectProvider = new QWidget( this );
+    QVBoxLayout* selectProviderLayout = new QVBoxLayout;
+    for ( auto t : cloudStorage->providers() )
+    {
+        QSettings settings;
+        std::string token = settings.value( t->name().c_str() ).toString().toStdString();
+        t->initialize( {token, std::unique_ptr<CloudCallback>( new CloudCallback ),
+                       nullptr, nullptr, nullptr, {}} );
+        QPushButton* button = new QPushButton( t->name().c_str() );
+        selectProviderLayout->addWidget( button );
+        connect( button, &QPushButton::pressed, this, &CloudOpenPanel::buttonClicked );
+    }
+    selectProvider->setLayout( selectProviderLayout );
+    CloudListView* selectFile = new CloudListView( this );
+    selectFile->setModel( &directoryModel );
+    connect( selectFile, &QListView::doubleClicked, this, &CloudOpenPanel::itemClicked );
+    connect( selectFile, &CloudListView::selectedItemChanged, this, &CloudOpenPanel::selectionChanged );
+    QHBoxLayout* mainLayout = new QHBoxLayout( this );
+    mainLayout->addWidget( selectProvider );
+    mainLayout->addWidget( selectFile );
+    setLayout( mainLayout );
+    ui.setupUi( this );
+}
+
+CloudOpenPanel::~CloudOpenPanel()
+{
+    save();
+}
+
+void CloudOpenPanel::save()
+{
+    if ( currentProvider )
+    {
+        QSettings settings;
+        settings.setValue( currentProvider->name().c_str(), currentProvider->token().c_str() );
+    }
+}
+
+void CloudOpenPanel::clear()
+{
+    emit mrlUpdated( QStringList(), "" );
+}
+
+void CloudOpenPanel::keyPressEvent( QKeyEvent *e )
+{
+    OpenPanel::keyPressEvent( e );
+    if ( !e->isAccepted() && e->key() == Qt::Key_Backspace )
+    {
+        if ( !directoryStack.empty() )
+        {
+            currentDirectory = directoryStack.back();
+            directoryStack.pop_back();
+            listDirectory();
+        }
+        else
+        {
+            directoryModel.clear();
+            currentDirectory = nullptr;
+            currentProvider = nullptr;
+        }
+        emit mrlUpdated( QStringList(), "" );
+        e->accept();
+    }
+}
+
+void CloudOpenPanel::buttonClicked()
+{
+    save();
+    directoryStack.clear();
+    QPushButton* button = static_cast<QPushButton*>( sender() );
+    currentProvider = cloudStorage->provider( button->text().toStdString() );
+    currentDirectory = currentProvider->rootDirectory();
+    listDirectory();
+}
+
+void CloudOpenPanel::itemClicked( const QModelIndex& index )
+{
+    auto item = directoryModel.get( index.row() );
+    if ( item->type() == cloudstorage::IItem::FileType::Directory )
+    {
+        directoryStack.push_back( currentDirectory );
+        currentDirectory = item;
+        listDirectory();
+    }
+    else
+    {
+        itemDataRequest = currentProvider->getItemDataAsync( item->id(), [this]( IItem::Pointer i ) {
+            if ( !i ) return;
+            QStringList list;
+            list << i->url().c_str();
+            emit methodChanged( qfu( "network-caching" ) );
+            emit mrlUpdated( list, "" );
+        } );
+    }
+}
+
+void CloudOpenPanel::selectionChanged()
+{
+    emit mrlUpdated( QStringList(), "" );
+}
+
+void CloudOpenPanel::listDirectory()
+{
+    directoryModel.clear();
+    std::unique_ptr<CloudListDirectoryCallback> callback( new CloudListDirectoryCallback( &directoryModel ) );
+    listDirectoryRequest = currentProvider->listDirectoryAsync( currentDirectory,
+                                                                std::move( callback ) );
+}
+
+void CloudOpenPanel::updateMRL()
+{
+    emit mrlUpdated( QStringList(), "" );
+}
+
+void CloudListView::selectionChanged( const QItemSelection&, const QItemSelection& )
+{
+    emit selectedItemChanged();
+}
+
+void DirectoryModel::addItem( IItem::Pointer item )
+{
+  beginInsertRows( QModelIndex(), rowCount(), rowCount() );
+  {
+    QMutexLocker lock( &mutex );
+    list.push_back( item );
+  }
+  endInsertRows();
+}
+
+IItem::Pointer DirectoryModel::get( int idx ) const
+{
+    QMutexLocker lock( &mutex );
+    return list[idx];
+}
+
+QVariant DirectoryModel::getName( int idx ) const
+{
+    QMutexLocker lock( &mutex );
+    return QString::fromStdString( list[idx]->filename() );
+}
+
+QVariant DirectoryModel::getIcon( int idx ) const
+{
+    QMutexLocker lock( &mutex );
+    auto item = list[idx];
+    if ( item->type() == IItem::FileType::Directory )
+        return QFileIconProvider().icon( QFileIconProvider::Folder );
+    else
+        return QFileIconProvider().icon( QFileIconProvider::File );
+}
+
+void DirectoryModel::clear()
+{
+    beginRemoveRows( QModelIndex(), 0, rowCount() - 1 );
+    list.clear();
+    endRemoveRows();
+}
+
+int DirectoryModel::rowCount( const QModelIndex & ) const
+{
+    QMutexLocker lock( &mutex );
+    return list.size();
+}
+
+QVariant DirectoryModel::data( const QModelIndex &index, int role ) const
+{
+    if ( role == Qt::DisplayRole )
+        return getName( index.row() );
+    else if ( role == Qt::DecorationRole )
+        return getIcon( index.row() );
+    return QVariant();
+}
+
+#endif

@@ -153,6 +153,7 @@ public slots:
     void openUrlDialog();
     void openNetDialog();
     void openCaptureDialog();
+    void openCloudDialog();
 
     void PLAppendDialog( int tab = OPEN_FILE_TAB );
     void MLAppendDialog( int tab = OPEN_FILE_TAB );

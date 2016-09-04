@@ -84,6 +84,9 @@ OpenDialog::OpenDialog( QWidget *parent,
     discOpenPanel    = new DiscOpenPanel( this, p_intf );
     netOpenPanel     = new NetOpenPanel( this, p_intf );
     captureOpenPanel = new CaptureOpenPanel( this, p_intf );
+#ifdef WITH_LIBCLOUDSTORAGE
+    cloudOpenPanel   = new CloudOpenPanel( this, p_intf );
+#endif
 
     /* Insert the tabs */
     ui.Tab->insertTab( OPEN_FILE_TAB, fileOpenPanel, QIcon( ":/type/file-asym" ),
@@ -94,6 +97,10 @@ OpenDialog::OpenDialog( QWidget *parent,
                        qtr( "&Network" ) );
     ui.Tab->insertTab( OPEN_CAPTURE_TAB, captureOpenPanel,
                        QIcon( ":/type/capture-card" ), qtr( "Capture &Device" ) );
+#ifdef WITH_LIBCLOUDSTORAGE
+    ui.Tab->insertTab( OPEN_CLOUD_TAB, cloudOpenPanel, QIcon( ":/type/cloud" ),
+                       qtr( "&Cloud" ) );
+#endif
 
     /* Hide the Slave input widgets */
     ui.slaveLabel->hide();
@@ -141,6 +148,10 @@ OpenDialog::OpenDialog( QWidget *parent,
              this, updateMRL( const QStringList&, const QString& ) );
     CONNECT( captureOpenPanel, mrlUpdated( const QStringList&, const QString& ),
              this, updateMRL( const QStringList&, const QString& ) );
+#ifdef WITH_LIBCLOUDSTORAGE
+    CONNECT( cloudOpenPanel, mrlUpdated( const QStringList&, const QString& ),
+             this, updateMRL( const QStringList&, const QString& ) );
+#endif
 
     CONNECT( fileOpenPanel, methodChanged( const QString& ),
              this, newCachingMethod( const QString& ) );
@@ -150,6 +161,10 @@ OpenDialog::OpenDialog( QWidget *parent,
              this, newCachingMethod( const QString& ) );
     CONNECT( captureOpenPanel, methodChanged( const QString& ),
              this, newCachingMethod( const QString& ) );
+#ifdef WITH_LIBCLOUDSTORAGE
+    CONNECT( cloudOpenPanel, methodChanged( const QString& ),
+             this, newCachingMethod( const QString& ) );
+#endif
 
     /* Advanced frame Connects */
     CONNECT( ui.slaveCheckbox, toggled( bool ), this, updateMRL() );
