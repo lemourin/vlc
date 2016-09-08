@@ -28,6 +28,10 @@ endif
 if HAVE_DARWIN
 libqt_plugin_la_LDFLAGS += -Wl,-framework,Cocoa
 endif
+if WITH_LIBCLOUDSTORAGE
+libqt_plugin_la_CXXFLAGS += $(libcloudstorage_CFLAGS)
+libqt_plugin_la_LIBADD += $(libcloudstorage_LIBS)
+endif
 
 gui_LTLIBRARIES =  $(LTLIBqt)
 EXTRA_LTLIBRARIES = libqt_plugin.la

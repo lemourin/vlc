@@ -4030,6 +4030,15 @@ dnl  libxml2 module
 dnl
 PKG_ENABLE_MODULES_VLC([LIBXML2], [xml], [libxml-2.0 >= 2.5], [libxml2 support],[auto])
 
+dnl
+dnl  libcloudstorage
+dnl
+AC_ARG_WITH([libcloudstorage], AS_HELP_STRING([--with-libcloudstorage]))
+AM_CONDITIONAL([WITH_LIBCLOUDSTORAGE], [test "x$with_libcloudstorage" != "xno"])
+AS_IF([test "x$with_libcloudstorage" != "xno"], [
+  PKG_CHECK_MODULES([libcloudstorage], [libcloudstorage])
+  AC_DEFINE(WITH_LIBCLOUDSTORAGE, [1], [Defined if having libcloudstorage])
+])
 
 dnl
 dnl libgcrypt
